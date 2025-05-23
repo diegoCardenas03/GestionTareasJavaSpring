@@ -1,5 +1,7 @@
 package com.tareas.gestiontareas.controller;
 
+import com.tareas.gestiontareas.config.security.JwtUtil;
+import com.tareas.gestiontareas.model.dto.LoginRequestDto;
 import com.tareas.gestiontareas.model.dto.Usuario.UsuarioDto;
 import com.tareas.gestiontareas.model.dto.Usuario.UsuarioResponseDto;
 import com.tareas.gestiontareas.service.UsuarioService;
@@ -16,6 +18,7 @@ import java.util.List;
 @RequiredArgsConstructor
 public class UsuarioController {
     public final UsuarioService usuarioService;
+    private final JwtUtil jwtUtil;
 
     @GetMapping
     public ResponseEntity<List<UsuarioResponseDto>> obtenerUsuarios() {
@@ -24,15 +27,30 @@ public class UsuarioController {
     }
 
     @GetMapping("/{id}")
-    public ResponseEntity<UsuarioResponseDto> obtenerUsuarioPorId(@PathVariable @Valid Long id){
+    public ResponseEntity<UsuarioResponseDto> obtenerUsuarioPorId(@PathVariable Long id){
         UsuarioResponseDto usuario = usuarioService.obtenerUsuarioPorId(id);
         return ResponseEntity.ok(usuario);
     }
 
     @PostMapping
-    public ResponseEntity<String> crearUsuario(UsuarioDto usuarioDto){
+    public ResponseEntity<String> crearUsuario(@RequestBody UsuarioDto usuarioDto){
         usuarioService.crearUsuario(usuarioDto);
         return ResponseEntity.status(HttpStatus.CREATED).body("Creado usuario correctamente");
+    }
+
+    @PostMapping("/login")
+    public String iniciarSesion(@RequestBody LoginRequestDto loginRequestDto){
+       UsuarioResponseDto usuarioDto = usuarioService.iniciarSesion(loginRequestDto);
+       return jwtUtil.generateToken(usuarioDto.getNombreUsuario(), usuarioDto.getRol());
+    }
+
+    @PostMapping("/Logout")
+    public ResponseEntity<String> cerrarSesion(@RequestHeader("Authorization") String authHeader){
+        if (authHeader != null && authHeader.startsWith("Bearer ")) {
+            String token = authHeader.substring(7);
+            usuarioService.cerrarSesion(token);
+        }
+        return ResponseEntity.ok("Sesión finalizada correctamente");
     }
 
     @PutMapping("/{id}")
@@ -42,9 +60,9 @@ public class UsuarioController {
     }
 
     @DeleteMapping("/{id}")
-    public ResponseEntity<Void> eliminarUsuario(@PathVariable @Valid Long id){
+    public ResponseEntity<String> eliminarUsuario(@PathVariable Long id){
         usuarioService.eliminarUsuario(id);
-        return ResponseEntity.noContent().build();
+        return ResponseEntity.ok("Usuario eliminado correctamente");
     }
 
 }

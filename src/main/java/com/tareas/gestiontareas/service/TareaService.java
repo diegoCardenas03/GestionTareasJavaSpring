@@ -3,11 +3,15 @@ package com.tareas.gestiontareas.service;
 import com.tareas.gestiontareas.model.dto.Tarea.TareaDto;
 import com.tareas.gestiontareas.model.dto.Tarea.TareaResponseDto;
 import com.tareas.gestiontareas.model.entity.Tarea;
+import com.tareas.gestiontareas.model.entity.Usuario;
 import com.tareas.gestiontareas.repository.TareaRepository;
+import com.tareas.gestiontareas.repository.UsuarioRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 
+import java.time.LocalDate;
 import java.util.List;
 
 
@@ -16,12 +20,14 @@ import java.util.List;
 public class TareaService {
 
    private final TareaRepository tareaRepository;
+   private final UsuarioRepository usuarioRepository;
+   private final MapperService mapperService;
 
 
-   public List<TareaResponseDto> obtenerTareas() {
+    public List<TareaResponseDto> obtenerTareas() {
        List<Tarea> tareas = tareaRepository.findAll();
        return  tareas.stream()
-               .map(this::toDto)
+               .map(mapperService::tareaToDto)
                .toList();
 
    }
@@ -29,18 +35,30 @@ public class TareaService {
    public TareaResponseDto obtenerPorId (Long id){
         Tarea tarea = tareaRepository.findById(id).
                orElseThrow(() -> new RuntimeException("Tarea no encontrada"));
-        return toDto(tarea);
+        return mapperService.tareaToDto(tarea);
    }
 
    public TareaResponseDto guardar(TareaDto tareaDto){
-       Tarea tarea = toEntity(tareaDto);
+       Tarea tarea = mapperService.tareaToEntity(tareaDto);
+       tarea.setFechaCreacion(LocalDate.now());
+       // Obtener el nombre de usuario autenticado
+       String nombreUsuario = (String) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
+       Usuario usuario = usuarioRepository.findByNombreUsuario(nombreUsuario)
+               .orElseThrow(() -> new RuntimeException("Usuario no encontrado"));
+       tarea.setUsuario(usuario);
        tareaRepository.save(tarea);
-       return toDto(tarea);
+       return mapperService.tareaToDto(tarea);
    }
 
    public TareaResponseDto actualizar(Long id, TareaDto tareaDto){
        Tarea tareaExistente = tareaRepository.findById(id)
                .orElseThrow(() -> new RuntimeException("Tarea no encontrada"));
+
+       String nombreUsuarioAuth = (String) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
+
+       if (!tareaExistente.getUsuario().getNombreUsuario().equals(nombreUsuarioAuth)){
+           throw new RuntimeException("No tienes permiso para modificar esta tarea");
+       }
 
        tareaExistente.setTitulo(tareaDto.getTitulo());
        tareaExistente.setDescripcion(tareaDto.getDescripcion());
@@ -49,30 +67,22 @@ public class TareaService {
        
        Tarea tareaActualizada = tareaRepository.save(tareaExistente);
 
-       return toDto(tareaActualizada);
+       return mapperService.tareaToDto(tareaActualizada);
    }
 
    public void eliminar(Long id){
+       Tarea tareaExistente = tareaRepository.findById(id)
+               .orElseThrow(() -> new RuntimeException("Tarea no encontrada"));
+
+       String nombreUsuarioAuth = (String) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
+
+       if (!tareaExistente.getUsuario().getNombreUsuario().equals(nombreUsuarioAuth)){
+           throw new RuntimeException("No tienes permiso para modificar esta tarea");
+       }
        tareaRepository.deleteById(id);
    }
 
-   // MAPPPERS
-    private Tarea toEntity (TareaDto tareaDto){
-       return Tarea.builder()
-               .titulo(tareaDto.getTitulo())
-               .descripcion(tareaDto.getDescripcion())
-               .estado(tareaDto.getEstado())
-               .fechaCaducidad(tareaDto.getFechaCaducidad())
-               .build();
-    }
-    private TareaResponseDto toDto (Tarea tarea){
-       return TareaResponseDto.builder()
-               .titulo(tarea.getTitulo())
-               .descripcion(tarea.getDescripcion())
-               .estado(tarea.getEstado())
-               .fechaCreacion(tarea.getFechaCreacion())
-               .fechaCaducidad(tarea.getFechaCaducidad())
-       .build();
-    }
+
+
 
 }

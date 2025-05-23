@@ -1,6 +1,8 @@
 package com.tareas.gestiontareas.model.dto.Usuario;
 
+import com.tareas.gestiontareas.model.dto.Tarea.TareaDto;
 import com.tareas.gestiontareas.model.entity.Tarea;
+import com.tareas.gestiontareas.model.enums.Rol;
 import lombok.*;
 
 import java.util.List;
@@ -12,5 +14,6 @@ import java.util.List;
 public class UsuarioDto {
     private String nombreUsuario;
     private String password;
-    private List<Tarea> tareas;
+    private Rol rol;
+    private List<TareaDto> tareas;
 }
