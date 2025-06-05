@@ -1,9 +1,11 @@
 package com.tareas.gestiontareas.service;
 
+import com.tareas.gestiontareas.config.security.JwtUtil;
 import com.tareas.gestiontareas.model.dto.Tarea.TareaDto;
 import com.tareas.gestiontareas.model.dto.Tarea.TareaResponseDto;
 import com.tareas.gestiontareas.model.entity.Tarea;
 import com.tareas.gestiontareas.model.entity.Usuario;
+import com.tareas.gestiontareas.model.enums.Rol;
 import com.tareas.gestiontareas.repository.TareaRepository;
 import com.tareas.gestiontareas.repository.UsuarioRepository;
 import lombok.RequiredArgsConstructor;
@@ -13,6 +15,7 @@ import org.springframework.stereotype.Service;
 
 import java.time.LocalDate;
 import java.util.List;
+import java.util.Optional;
 
 
 @Service
@@ -22,15 +25,29 @@ public class TareaService {
    private final TareaRepository tareaRepository;
    private final UsuarioRepository usuarioRepository;
    private final MapperService mapperService;
+   private final JwtUtil jwtUtil;
 
 
-    public List<TareaResponseDto> obtenerTareas() {
-       List<Tarea> tareas = tareaRepository.findAll();
-       return  tareas.stream()
-               .map(mapperService::tareaToDto)
-               .toList();
+    public List<TareaResponseDto> obtenerTareas(String token) {
+        Rol rol = jwtUtil.extractRol(token);
+        String nombreUsuario = (String) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
 
-   }
+        if (rol == Rol.ADMIN) {
+            Optional<Usuario> admin = usuarioRepository.findByNombreUsuario(nombreUsuario);
+            if (admin.isEmpty()){
+                throw new RuntimeException("Admin no encontrado");
+            }
+            return tareaRepository.findAll().stream()
+                    .map(mapperService::tareaToDto)
+                    .toList();
+        } else {
+            Usuario usuario = usuarioRepository.findByNombreUsuario(nombreUsuario)
+                    .orElseThrow(() -> new RuntimeException("Usuario no encontrado"));
+            return tareaRepository.findByUsuario(usuario).stream()
+                    .map(mapperService::tareaToDto)
+                    .toList();
+        }
+    }
 
    public TareaResponseDto obtenerPorId (Long id){
         Tarea tarea = tareaRepository.findById(id).

@@ -1,5 +1,6 @@
 package com.tareas.gestiontareas.config.security;
 
+import com.tareas.gestiontareas.exception.JwtExpiredException;
 import com.tareas.gestiontareas.model.enums.Rol;
 import com.tareas.gestiontareas.service.UsuarioService;
 import jakarta.servlet.FilterChain;
@@ -33,16 +34,22 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
     @Override
     protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain filterChain)
-        throws ServletException, IOException {
+            throws ServletException, IOException {
         String token = extractJwtFromRequest(request);
-        if (token != null && !jwtUtil.isTokenExpired(token) && !usuarioService.isTokenBlackListed(token)){
-            String username = jwtUtil.extractUsername(token);
-            Rol rol = jwtUtil.extractRol(token);
+        if (token != null) {
+            if (jwtUtil.isTokenExpired(token)) {
+                throw new JwtExpiredException("Token expirado");
+            }
+            if (!usuarioService.isTokenBlackListed(token)) {
+                String username = jwtUtil.extractUsername(token);
+                Rol rol = jwtUtil.extractRol(token);
 
-            UsernamePasswordAuthenticationToken authentication = new UsernamePasswordAuthenticationToken(username, null, java.util.List.of(() -> "ROLE_" + rol.name()));
+                UsernamePasswordAuthenticationToken authentication =
+                        new UsernamePasswordAuthenticationToken(username, null, java.util.List.of(() -> "ROLE_" + rol.name()));
 
-            authentication.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
-            SecurityContextHolder.getContext().setAuthentication(authentication);
+                authentication.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
+                SecurityContextHolder.getContext().setAuthentication(authentication);
+            }
         }
         filterChain.doFilter(request, response);
     }

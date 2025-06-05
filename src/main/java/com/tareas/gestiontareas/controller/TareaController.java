@@ -18,9 +18,9 @@ public class TareaController {
     private final TareaService tareaService;
 
     @PostMapping
-    public ResponseEntity<String> crearTarea(@Valid @RequestBody TareaDto tareaDto){
-        tareaService.guardar(tareaDto);
-        return ResponseEntity.status(HttpStatus.CREATED).body("Tarea guardada correctamente");
+    public ResponseEntity<TareaResponseDto> crearTarea(@Valid @RequestBody TareaDto tareaDto){
+        TareaResponseDto tareaCreada = tareaService.guardar(tareaDto);
+        return ResponseEntity.status(HttpStatus.CREATED).body(tareaCreada);
     }
 
     @GetMapping("/{id}")
@@ -29,14 +29,20 @@ public class TareaController {
     }
 
     @GetMapping
-    public ResponseEntity<List<TareaResponseDto>> obtenerListaTareas(){
-        return ResponseEntity.ok(tareaService.obtenerTareas());
+    public ResponseEntity<List<TareaResponseDto>> obtenerListaTareas(@RequestHeader("Authorization") String authHeader){
+        if (authHeader != null && authHeader.startsWith("Bearer ")) {
+            String token = authHeader.substring(7);
+            return ResponseEntity.ok(tareaService.obtenerTareas(token));
+
+        } else {
+            throw new RuntimeException("Token invalido");
+        }
     }
 
     @PutMapping("/{id}")
-    public ResponseEntity<String> actualizarTarea(@PathVariable Long id, @Valid @RequestBody TareaDto tareaDto){
-        tareaService.actualizar(id, tareaDto);
-        return ResponseEntity.ok("Tarea actualizada correctamente");
+    public ResponseEntity<TareaResponseDto> actualizarTarea(@PathVariable Long id, @Valid @RequestBody TareaDto tareaDto){
+        TareaResponseDto tareaResponseDto = tareaService.actualizar(id, tareaDto);
+        return ResponseEntity.ok(tareaResponseDto);
     }
 
     @DeleteMapping("/{id}")
